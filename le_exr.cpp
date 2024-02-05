@@ -1,14 +1,16 @@
 #include "le_exr.h"
+#include "le_log.h"
+#include "le_core.h"
+
+#include "private/le_renderer/le_renderer_types.h"
+#include "shared/interfaces/le_image_decoder_interface.h"
+
+#include <cassert>
+
 #include "ImfFrameBuffer.h"
 #include "ImfHeader.h"
 #include "ImfInputFile.h"
 #include "ImfChannelList.h"
-#include "le_core.h"
-#include "le_renderer.h"
-#include "le_log.h"
-#include <cassert>
-
-#include "shared/interfaces/le_image_decoder_interface.h"
 
 struct le_image_decoder_format_o {
 	le::Format format;
@@ -30,15 +32,11 @@ static auto logger = LeLog( "le_exr" );
 // ----------------------------------------------------------------------
 
 struct le_image_decoder_o {
-	// Imf::Array2D<Pixel>    pixel_data;
-	// bool                   image_was_uploaded = false;
-	// bool                   image_was_imported = false;
 	uint32_t image_width  = 0;
 	uint32_t image_height = 0;
-	// le_img_resource_handle image_handle       = LE_IMG_RESOURCE( "exr_image" );
 
 	Imf::InputFile* inputFile;
-	// members
+
 	le::Format image_inferred_format;
 	le::Format image_requested_format = le::Format::eUndefined; // requested format wins over inferred format
 };
@@ -50,8 +48,6 @@ static le_image_decoder_o* le_image_decoder_create( char const* file_path ) {
 
 	try {
 
-		// auto file_path = "./local_resources/images/CAM_00002.exr";
-		// auto           file_path = "./local_resources/images/CAM_00001_smaller.exr";
 		self->inputFile = new Imf::InputFile( file_path );
 
 		logger.debug( "Opened file: %s", file_path );
