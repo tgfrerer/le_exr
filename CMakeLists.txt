@@ -38,8 +38,10 @@ add_subdirectory( 3rdparty/le_exr/openexr/)
 
 # Source files for this Island module ----
 
-set (SOURCES "le_exr.cpp")
-set (SOURCES ${SOURCES} "le_exr.h")
+set (SOURCES "le_exr.h")
+set (SOURCES ${SOURCES} "le_exr.cpp")
+# set (SOURCES ${SOURCES} "le_exr_encoder.cpp")
+set (SOURCES ${SOURCES} "le_exr_decoder.cpp")
 
 if (${PLUGINS_DYNAMIC})
 
