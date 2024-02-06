@@ -16,18 +16,11 @@ struct le_image_decoder_format_o {
 	le::Format format;
 };
 
-// TODO: You must find the correct name for the dynamic library to include
-// under windows.
 #if ( WIN32 ) and defined( PLUGINS_DYNAMIC )
 #	pragma comment( lib, "bin/modules/OpenEXR-3_3.lib" )
 #endif
 
 static auto logger = LeLog( "le_exr" );
-
-// ----------------------------------------------------------------------
-
-// By default we assume float pixels - but we might as well consider implementing
-// half float pixels - the interface for these is simple, you can use
 
 // ----------------------------------------------------------------------
 
@@ -91,7 +84,7 @@ static le_image_decoder_o* le_image_decoder_create( char const* file_path ) {
 				self->image_inferred_format = le::Format::eR16Sfloat;
 				break;
 			case ( Imf::PixelType::UINT ):
-				self->image_inferred_format = le::Format::eR8Unorm;
+				self->image_inferred_format = le::Format::eR32Uint;
 				break;
 			default:
 				assert( false );
@@ -106,7 +99,7 @@ static le_image_decoder_o* le_image_decoder_create( char const* file_path ) {
 				self->image_inferred_format = le::Format::eR16G16B16Sfloat;
 				break;
 			case ( Imf::PixelType::UINT ):
-				self->image_inferred_format = le::Format::eR8G8B8Unorm;
+				self->image_inferred_format = le::Format::eR32G32B32Uint;
 				break;
 			default:
 				assert( false );
@@ -121,7 +114,7 @@ static le_image_decoder_o* le_image_decoder_create( char const* file_path ) {
 				self->image_inferred_format = le::Format::eR16G16B16A16Sfloat;
 				break;
 			case ( Imf::PixelType::UINT ):
-				self->image_inferred_format = le::Format::eR8G8B8A8Unorm;
+				self->image_inferred_format = le::Format::eR32G32B32A32Uint;
 				break;
 			default:
 				assert( false );
@@ -259,8 +252,12 @@ void le_register_exr_decoder_api( void* api ) {
 	if ( le_image_decoder_i == nullptr ) {
 		le_image_decoder_i = new le_image_decoder_interface_t{};
 	} else {
-		// Interface already existed - we have been reloaded and only just need to update
-		// function pointer addresses
+		// The interface already existed - we have been reloaded and only just need to update
+		// function pointer addresses.
+		//
+		// This is important as by not re-allocating a new interface object
+		// but by updating the existing interface object by-value, we keep the *public
+		// address for the interface*, while updating its function pointers.
 		*le_image_decoder_i = le_image_decoder_interface_t();
 	}
 
