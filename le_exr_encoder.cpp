@@ -17,8 +17,6 @@ struct le_image_encoder_format_o {
 	le::Format format;
 };
 
-// TODO: You must find the correct name for the dynamic library to include
-// under windows.
 #if ( WIN32 ) and defined( PLUGINS_DYNAMIC )
 #	pragma comment( lib, "bin/modules/OpenEXR-3_3.lib" )
 #endif
@@ -26,10 +24,8 @@ struct le_image_encoder_format_o {
 static auto logger = LeLog( "le_exr" );
 
 // ----------------------------------------------------------------------
-
-// we must give clients of this encoder a chance to check whether they assume
-// a compatible version of this encoder - this is because the parameters passed
-// to the encoder are passed as json.
+// We must give clients of this encoder a chance to check whether they can assume
+// a compatible version of this encoder:
 static uint64_t le_image_encoder_get_encoder_version( le_image_encoder_o* encoder ) {
 	static constexpr uint64_t ENCODER_VERSION = 0ull << 48 | 0ull << 32 | 1ull << 16 | 0ull << 0;
 	return 0;
@@ -38,14 +34,13 @@ static uint64_t le_image_encoder_get_encoder_version( le_image_encoder_o* encode
 // ----------------------------------------------------------------------
 
 static le_exr_image_encoder_parameters_t get_default_parameters() {
-	using c_t = le_exr_image_encoder_parameters_t::channel_t;
-	le_exr_image_encoder_parameters_t r{
-		c_t{ le_exr_image_encoder_parameters_t::eF16, "R", false },
-		c_t{ le_exr_image_encoder_parameters_t::eF16, "G", false },
-		c_t{ le_exr_image_encoder_parameters_t::eF16, "B", false },
-		c_t{ le_exr_image_encoder_parameters_t::eF16, "A", false },
-	};
-	return r;
+	using ns = le_exr_image_encoder_parameters_t;
+	return { {
+			{ ns::eF16, "R", false },
+			{ ns::eF16, "G", false },
+			{ ns::eF16, "B", false },
+			{ ns::eF16, "A", false },
+	} };
 }
 
 // ----------------------------------------------------------------------
@@ -86,6 +81,8 @@ static void le_image_encoder_set_encode_parameters( le_image_encoder_o* self, vo
 		logger.warn( "Could not set parameters for encoder: Parameters pointer was NULL." );
 	}
 }
+
+// ----------------------------------------------------------------------
 
 static Imf::FrameBuffer framebuffer_from_vk_format( le_image_encoder_format_o* p_format, Imf::Header const& header, uint8_t const* p_pixel_data, size_t image_width ) {
 
@@ -166,8 +163,7 @@ static bool le_image_encoder_write_pixels( le_image_encoder_o* self, uint8_t con
 
 	using pixel_t = le_exr_image_encoder_parameters_t::PixelType;
 
-	size_t per_channel_offset[ 4 ]; // bytes offset per-channel
-	size_t pixel_size  = 0;         // size of a pixel
+	size_t pixel_size  = 0; // size of a pixel
 	size_t channel_idx = 0;
 
 	for ( auto& channel_param : self->params.channels ) {
@@ -175,8 +171,6 @@ static bool le_image_encoder_write_pixels( le_image_encoder_o* self, uint8_t con
 			continue;
 		}
 		Imf::Channel channel{};
-
-		per_channel_offset[ channel_idx ] = pixel_size;
 
 		if ( channel_param.type == pixel_t::eF16 ) {
 			channel.type = Imf::HALF;
@@ -220,8 +214,12 @@ void le_register_exr_encoder_api( void* api ) {
 	if ( le_image_encoder_i == nullptr ) {
 		le_image_encoder_i = new le_image_encoder_interface_t{};
 	} else {
-		// Interface already existed - we have been reloaded and only just need to update
-		// function pointer addresses
+		// The interface already existed - we have been reloaded and only just need to update
+		// function pointer addresses.
+		//
+		// This is important as by not re-allocating a new interface object
+		// but by updating the existing interface object by-value, we keep the *public
+		// address for the interface*, while updating its function pointers.
 		*le_image_encoder_i = le_image_encoder_interface_t();
 	}
 
