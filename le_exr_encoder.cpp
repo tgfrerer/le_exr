@@ -208,9 +208,8 @@ static bool le_image_encoder_write_pixels( le_image_encoder_o* self, uint8_t con
 // ----------------------------------------------------------------------
 
 void* le_image_encoder_clone_parameters_object( void* obj ) {
-	auto result    = new le_exr_image_encoder_parameters_t{};
-	auto typed_obj = static_cast<le_exr_image_encoder_parameters_t*>( obj );
-	*result        = *typed_obj;
+	auto result = new le_exr_image_encoder_parameters_t{
+	    *static_cast<le_exr_image_encoder_parameters_t*>( obj ) };
 	return result;
 };
 
