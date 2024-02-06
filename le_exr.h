@@ -14,6 +14,8 @@
 
 // Generic image decoder interface - the .cpp file will import the definition
 // via `shared/intefaces/le_image_decoder_inferface.h`
+//
+// Using the encoder interface works just the same.
 
 struct le_image_decoder_interface_t;
 struct le_image_encoder_interface_t;
@@ -36,8 +38,8 @@ struct le_exr_image_encoder_parameters_t {
 
 // clang-format off
 struct le_exr_api {
-    le_image_decoder_interface_t * le_exr_image_decoder_i = nullptr; // abstract image decoder interface -- this is an alternative interface and can be used to interact with pixels in a generic way
-    le_image_encoder_interface_t * le_exr_image_encoder_i = nullptr; // abstract image decoder interface -- this is an alternative interface and can be used to interact with pixels in a generic way
+    le_image_decoder_interface_t * le_exr_image_decoder_i = nullptr; // abstract image decoder interface
+    le_image_encoder_interface_t * le_exr_image_encoder_i = nullptr; // abstract image encoder interface
 };
 // clang-format on
 
