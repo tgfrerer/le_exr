@@ -35,7 +35,7 @@ static uint64_t le_image_encoder_get_encoder_version( le_image_encoder_o* encode
 
 static le_exr_image_encoder_parameters_t get_default_parameters() {
 	using ns = le_exr_image_encoder_parameters_t;
-	return { {
+	return le_exr_image_encoder_parameters_t{ {
 			{ ns::eF16, "R", false },
 			{ ns::eF16, "G", false },
 			{ ns::eF16, "B", false },
