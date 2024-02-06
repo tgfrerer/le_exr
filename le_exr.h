@@ -16,10 +16,28 @@
 // via `shared/intefaces/le_image_decoder_inferface.h`
 
 struct le_image_decoder_interface_t;
+struct le_image_encoder_interface_t;
+
+struct le_exr_image_encoder_parameters_t {
+	enum PixelType {
+		eUnused = 0,
+		eF32,
+		eF16,
+		eU32,
+	};
+	struct channel_t {
+		PixelType type              = {}; // leave at eUnused to keep channeld empty
+		char      channel_name[ 8 ] = {};
+		bool      non_linear        = 0; // linear by default
+	};
+
+	channel_t channels[ 4 ];
+};
 
 // clang-format off
 struct le_exr_api {
     le_image_decoder_interface_t * le_exr_image_decoder_i = nullptr; // abstract image decoder interface -- this is an alternative interface and can be used to interact with pixels in a generic way
+    le_image_encoder_interface_t * le_exr_image_encoder_i = nullptr; // abstract image decoder interface -- this is an alternative interface and can be used to interact with pixels in a generic way
 };
 // clang-format on
 
@@ -33,11 +51,5 @@ static const auto& api = le_exr_api_i;
 } // namespace le_exr
 
 #endif // __cplusplus
-
-#if ( WIN32 )
-//#	pragma comment( lib, "modules/OpenEXR.lib" )
-#endif
-
-
 
 #endif

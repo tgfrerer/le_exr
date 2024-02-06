@@ -40,7 +40,7 @@ add_subdirectory( 3rdparty/le_exr/openexr/)
 
 set (SOURCES "le_exr.h")
 set (SOURCES ${SOURCES} "le_exr.cpp")
-# set (SOURCES ${SOURCES} "le_exr_encoder.cpp")
+set (SOURCES ${SOURCES} "le_exr_encoder.cpp")
 set (SOURCES ${SOURCES} "le_exr_decoder.cpp")
 
 if (${PLUGINS_DYNAMIC})
