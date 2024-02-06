@@ -207,6 +207,22 @@ static bool le_image_encoder_write_pixels( le_image_encoder_o* self, uint8_t con
 
 // ----------------------------------------------------------------------
 
+void* le_image_encoder_clone_parameters_object( void* obj ) {
+	auto result    = new le_exr_image_encoder_parameters_t{};
+	auto typed_obj = static_cast<le_exr_image_encoder_parameters_t*>( obj );
+	*result        = *typed_obj;
+	return result;
+};
+
+// ----------------------------------------------------------------------
+void le_image_encoder_destroy_parameters_object( void* obj ) {
+	le_exr_image_encoder_parameters_t* typed_obj =
+	    static_cast<le_exr_image_encoder_parameters_t*>( obj );
+	delete ( typed_obj );
+};
+
+// ----------------------------------------------------------------------
+
 void le_register_exr_encoder_api( void* api ) {
 
 	auto& le_image_encoder_i = static_cast<le_exr_api*>( api )->le_exr_image_encoder_i;
@@ -222,6 +238,9 @@ void le_register_exr_encoder_api( void* api ) {
 		// address for the interface*, while updating its function pointers.
 		*le_image_encoder_i = le_image_encoder_interface_t();
 	}
+
+	le_image_encoder_i->clone_image_encoder_parameters_object   = le_image_encoder_clone_parameters_object;
+	le_image_encoder_i->destroy_image_encoder_parameters_object = le_image_encoder_clone_parameters_object;
 
 	le_image_encoder_i->create_image_encoder  = le_image_encoder_create;
 	le_image_encoder_i->destroy_image_encoder = le_image_encoder_destroy;
