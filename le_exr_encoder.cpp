@@ -240,7 +240,7 @@ void le_register_exr_encoder_api( void* api ) {
 	}
 
 	le_image_encoder_i->clone_image_encoder_parameters_object   = le_image_encoder_clone_parameters_object;
-	le_image_encoder_i->destroy_image_encoder_parameters_object = le_image_encoder_clone_parameters_object;
+	le_image_encoder_i->destroy_image_encoder_parameters_object = le_image_encoder_destroy_parameters_object;
 
 	le_image_encoder_i->create_image_encoder  = le_image_encoder_create;
 	le_image_encoder_i->destroy_image_encoder = le_image_encoder_destroy;
