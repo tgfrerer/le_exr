@@ -36,10 +36,10 @@ static uint64_t le_image_encoder_get_encoder_version( le_image_encoder_o* encode
 static le_exr_image_encoder_parameters_t get_default_parameters() {
 	using ns = le_exr_image_encoder_parameters_t;
 	return le_exr_image_encoder_parameters_t{ {
-			{ ns::eF16, "R", false },
-			{ ns::eF16, "G", false },
-			{ ns::eF16, "B", false },
-			{ ns::eF16, "A", false },
+			{ "R", false },
+			{ "G", false },
+			{ "B", false },
+			{ "A", false },
 	} };
 }
 
@@ -84,74 +84,42 @@ static void le_image_encoder_set_encode_parameters( le_image_encoder_o* self, vo
 
 // ----------------------------------------------------------------------
 
-static Imf::FrameBuffer framebuffer_from_vk_format( le_image_encoder_format_o* p_format, Imf::Header const& header, uint8_t const* p_pixel_data, size_t image_width ) {
+static Imf::FrameBuffer framebuffer_from_vk_format( Imf::Header const& header, uint8_t const* p_pixel_data, size_t image_width, Imf::PixelType pixel_data_type, size_t num_channels ) {
 
 	Imf::FrameBuffer framebuffer;
 
-	le::Format format = p_format->format;
+	size_t size_of_num_type_in_bytes = 0;
 
-	le_num_type num_type     = {};
-	uint32_t    num_channels = {};
-
-	le_format_infer_channels_and_num_type( format, &num_channels, &num_type );
-
-	uint32_t bytes_per_pixel = size_of( num_type ) * num_channels;
-
-	// TODO: we must find out whether we can use the input data to write
-	// into the output file...
-	//
-	// This here is where we should apply any swizzles - bgra argb etc.
-	// the swizzles apply to the source data.
-
-	std::array<uint32_t, 4>    channel_idx        = { 0, 1, 2, 3 }; // RBGA -> reorder here to re-order channels
-	std::array<std::string, 4> channel_names      = { "R", "G", "B", "A" };
-	std::array<size_t, 4>      per_channel_offset = { 0, 1, 2, 3 }; // will get scaled later
-
-	// scale per channel offset by size of pixel type
-	for ( auto& o : per_channel_offset ) {
-		o *= size_of( num_type );
-	}
-
-	Imf::PixelType pixel_type = Imf::NUM_PIXELTYPES;
-
-	switch ( num_type ) {
-	case le_num_type::eF16:
-		pixel_type = Imf::PixelType::HALF;
+	switch ( pixel_data_type ) {
+	case ( Imf::FLOAT ):
+	case ( Imf::UINT ):
+		size_of_num_type_in_bytes = 4;
 		break;
-	case le_num_type::eF32:
-		pixel_type = Imf::PixelType::FLOAT;
-		break;
-	case le_num_type::eU32:
-		pixel_type = Imf::PixelType::UINT;
+	case ( Imf::HALF ):
+		size_of_num_type_in_bytes = 2;
 		break;
 	default:
-		logger.error( "Can't write out out exr image from vk image with format: %s", le::to_str( format ) );
-		break;
+		logger.error( "Unknown pixel data type: %d", pixel_data_type );
+		return framebuffer;
 	}
 
-	assert( pixel_type != Imf::NUM_PIXELTYPES );
+	uint32_t bytes_per_pixel = size_of_num_type_in_bytes * num_channels;
 
-	if ( num_channels == 1 ) {
+	const std::string names_for_channels = num_channels > 1 ? "RGBA" : "Y";
+
+	std::array<size_t, 4> channel_index = { 0, 1, 2, 3 }; // will get scaled later
+
+	for ( size_t i = 0; i != num_channels; i++ ) {
 		framebuffer.insert(
-		    "R",
+		    std::string( { names_for_channels[ i ] } ),
 		    Imf::Slice(
-		        pixel_type,
-		        ( char* )p_pixel_data,          // base ptr
-		        bytes_per_pixel * 1,            // x-stride
-		        bytes_per_pixel * image_width ) // y-stride
+		        pixel_data_type,
+		        ( char* )p_pixel_data + ( channel_index[ i ] * size_of_num_type_in_bytes ), // base ptr
+		        bytes_per_pixel * 1,                                                        // x-stride
+		        bytes_per_pixel * image_width )                                             // y-stride
 		);
-	} else {
-		for ( size_t i = 0; i != num_channels; i++ ) {
-			framebuffer.insert(
-			    channel_names[ channel_idx[ i ] ],
-			    Imf::Slice(
-			        pixel_type,
-			        ( char* )p_pixel_data + per_channel_offset[ channel_idx[ i ] ], // base ptr
-			        bytes_per_pixel * 1,                                            // x-stride
-			        bytes_per_pixel * image_width )                                 // y-stride
-			);
-		}
 	}
+
 	return framebuffer;
 }
 
@@ -161,45 +129,71 @@ static bool le_image_encoder_write_pixels( le_image_encoder_o* self, uint8_t con
 
 	Imf::Header header( self->image_width, self->image_height );
 
-	using pixel_t = le_exr_image_encoder_parameters_t::PixelType;
+	Imf::PixelType pixel_type = Imf::PixelType::NUM_PIXELTYPES;
 
-	size_t pixel_size  = 0; // size of a pixel
-	size_t channel_idx = 0;
+	switch ( pixel_data_format->format ) {
+	case ( le::Format::eR32G32B32A32Sfloat ):
+	case ( le::Format::eR32G32B32Sfloat ):
+	case ( le::Format::eR32Sfloat ):
+		pixel_type = Imf::FLOAT;
+		break;
+	case ( le::Format::eR32G32B32A32Uint ):
+	case ( le::Format::eR32G32B32Uint ):
+	case ( le::Format::eR32Uint ):
+		pixel_type = Imf::UINT;
+		break;
+	case ( le::Format::eR16G16B16A16Sfloat ):
+	case ( le::Format::eR16G16B16Sfloat ):
+	case ( le::Format::eR16Sfloat ):
+		pixel_type = Imf::HALF;
+		break;
+	default:
+		logger.error( "Unknown or unsupported image format: %s", le::to_str( pixel_data_format->format ) );
+		return false;
+	}
+
+	// -----------| invariant: format is one of the named above formats
+
+	size_t num_channels_in_source_image = 0;
+
+	switch ( pixel_data_format->format ) {
+	case ( le::Format::eR32G32B32A32Sfloat ):
+	case ( le::Format::eR32G32B32A32Uint ):
+	case ( le::Format::eR16G16B16A16Sfloat ):
+		num_channels_in_source_image = 4;
+		break;
+	case ( le::Format::eR32G32B32Sfloat ):
+	case ( le::Format::eR32G32B32Uint ):
+	case ( le::Format::eR16G16B16Sfloat ):
+		num_channels_in_source_image = 3;
+		break;
+	case ( le::Format::eR32Sfloat ):
+	case ( le::Format::eR32Uint ):
+	case ( le::Format::eR16Sfloat ):
+		num_channels_in_source_image = 1;
+		break;
+	default:
+		logger.error( "Unknown or unsupported image format: %s", le::to_str( pixel_data_format->format ) );
+		return false;
+	}
 
 	for ( auto& channel_param : self->params.channels ) {
-		if ( channel_param.type == pixel_t::eUnused ) {
+		if ( channel_param.channel_name[ 0 ] == '\0' ) {
 			continue;
 		}
 		Imf::Channel channel{};
 
-		if ( channel_param.type == pixel_t::eF16 ) {
-			channel.type = Imf::HALF;
-		} else if ( channel_param.type == pixel_t::eF32 ) {
-			channel.type = Imf::FLOAT;
-		} else if ( channel_param.type == pixel_t::eU32 ) {
-			channel.type = Imf::UINT;
-		}
-
+		channel.type    = pixel_type;
 		channel.pLinear = !channel_param.non_linear;
 
 		header.channels().insert( channel_param.channel_name, channel );
-		channel_idx++;
 	}
 
-	// Note that the pixel format that you write must match
-	// the pixel format of the source vulkan image.
-
-	// This means that the pixel format defined in the header
-	// must match the pixel format declared in the framebuffer.
-	//
-	// Otherwise the OpenEXR encoder will complain.
-
-	auto framebuffer = framebuffer_from_vk_format( pixel_data_format, header, p_pixel_data, self->image_width );
+	auto framebuffer = framebuffer_from_vk_format( header, p_pixel_data, self->image_width, pixel_type, num_channels_in_source_image );
 
 	auto outputfile = Imf::OutputFile( self->output_file_name.c_str(), header );
 
 	outputfile.setFrameBuffer( framebuffer );
-
 	outputfile.writePixels( self->image_height );
 
 	return true;
