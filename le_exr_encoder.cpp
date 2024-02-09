@@ -107,7 +107,7 @@ static Imf::FrameBuffer framebuffer_from_vk_format( Imf::Header const& header, u
 
 	const std::string names_for_channels = num_channels > 1 ? "RGBA" : "Y";
 
-	std::array<size_t, 4> channel_index = { 0, 1, 2, 3 }; // will get scaled later
+	size_t channel_index[4] = { 0, 1, 2, 3 }; // will get scaled later
 
 	for ( size_t i = 0; i != num_channels; i++ ) {
 		framebuffer.insert(
