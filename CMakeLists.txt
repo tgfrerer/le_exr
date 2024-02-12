@@ -44,19 +44,12 @@ set (SOURCES ${SOURCES} "le_exr_encoder.cpp")
 set (SOURCES ${SOURCES} "le_exr_decoder.cpp")
 
 if (${PLUGINS_DYNAMIC})
-
     add_library(${TARGET} SHARED ${SOURCES})
-
     add_dynamic_linker_flags()
-  
     target_compile_definitions(${TARGET}  PUBLIC "PLUGINS_DYNAMIC")
-
 else()
-
     add_library(${TARGET} STATIC ${SOURCES})
-
     add_static_lib( ${TARGET} )
-
 endif()
 
 # ----------------------------------------------------------------------
@@ -66,8 +59,7 @@ endif()
 
 target_include_directories(${TARGET} PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/le_exr/Imath/src/Imath")
-target_include_directories(${TARGET} PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/le_exr/Imath/src/Imath")
+
 
 target_include_directories(${TARGET} PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/le_exr/openexr/src/lib/OpenEXR")
