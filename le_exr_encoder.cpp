@@ -36,10 +36,10 @@ static uint64_t le_image_encoder_get_encoder_version( le_image_encoder_o* encode
 static le_exr_image_encoder_parameters_t get_default_parameters() {
 	using ns = le_exr_image_encoder_parameters_t;
 	return le_exr_image_encoder_parameters_t{ {
-			{ "R", false },
-			{ "G", false },
-			{ "B", false },
-			{ "A", false },
+		{ "R", false },
+		{ "G", false },
+		{ "B", false },
+		{ "A", false },
 	} };
 }
 
@@ -51,7 +51,7 @@ struct le_image_encoder_o {
 
 	std::string output_file_name;
 
-	le_exr_image_encoder_parameters_t params = get_default_parameters(); // todo: set defaults
+	le_exr_image_encoder_parameters_t params = get_default_parameters();
 };
 
 // ----------------------------------------------------------------------
@@ -107,7 +107,7 @@ static Imf::FrameBuffer framebuffer_from_vk_format( Imf::Header const& header, u
 
 	const std::string names_for_channels = num_channels > 1 ? "RGBA" : "Y";
 
-	size_t channel_index[4] = { 0, 1, 2, 3 }; // will get scaled later
+	size_t channel_index[ 4 ] = { 0, 1, 2, 3 }; // will get scaled later
 
 	for ( size_t i = 0; i != num_channels; i++ ) {
 		framebuffer.insert(
