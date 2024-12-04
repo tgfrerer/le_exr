@@ -23,12 +23,16 @@ struct le_image_encoder_format_o {
 
 static auto logger = LeLog( "le_exr" );
 
+static void* parameters_object_clone( void const* obj ); // ffdecl
+static void  parameters_object_destroy( void* obj );     // ffdecl
+
 // ----------------------------------------------------------------------
 // We must give clients of this encoder a chance to check whether they can assume
 // a compatible version of this encoder:
 static uint64_t le_image_encoder_get_encoder_version( le_image_encoder_o* encoder ) {
-	static constexpr uint64_t ENCODER_VERSION = 0ull << 48 | 0ull << 32 | 1ull << 16 | 0ull << 0;
-	return 0;
+	static constexpr uint64_t ENCODER_VERSION = 0ull << 48 | 0ull << 32 | 2ull << 16 | 1ull << 0;
+	static_assert( ENCODER_VERSION == le_image_encoder_interface_t::API_VERSION, "Api version must match interface api version" );
+	return ENCODER_VERSION;
 };
 
 // ----------------------------------------------------------------------
@@ -201,18 +205,24 @@ static bool le_image_encoder_write_pixels( le_image_encoder_o* self, uint8_t con
 
 // ----------------------------------------------------------------------
 
-void* le_image_encoder_clone_parameters_object( void* obj ) {
+static void* parameters_object_clone( void const* obj ) {
 	auto result = new le_exr_image_encoder_parameters_t{
-	    *static_cast<le_exr_image_encoder_parameters_t*>( obj ) };
+	    *static_cast<le_exr_image_encoder_parameters_t const*>( obj ) };
 	return result;
 };
 
 // ----------------------------------------------------------------------
-void le_image_encoder_destroy_parameters_object( void* obj ) {
+static void parameters_object_destroy( void* obj ) {
 	le_exr_image_encoder_parameters_t* typed_obj =
 	    static_cast<le_exr_image_encoder_parameters_t*>( obj );
 	delete ( typed_obj );
 };
+
+// ----------------------------------------------------------------------
+
+static void le_image_encoder_update_filename( le_image_encoder_o* self, char const* filename ) {
+	self->output_file_name = filename;
+}
 
 // ----------------------------------------------------------------------
 
@@ -232,12 +242,13 @@ void le_register_exr_encoder_api( void* api ) {
 		*le_image_encoder_i = le_image_encoder_interface_t();
 	}
 
-	le_image_encoder_i->clone_image_encoder_parameters_object   = le_image_encoder_clone_parameters_object;
-	le_image_encoder_i->destroy_image_encoder_parameters_object = le_image_encoder_destroy_parameters_object;
+	le_image_encoder_i->clone_image_encoder_parameters_object   = parameters_object_clone;
+	le_image_encoder_i->destroy_image_encoder_parameters_object = parameters_object_destroy;
 
 	le_image_encoder_i->create_image_encoder  = le_image_encoder_create;
 	le_image_encoder_i->destroy_image_encoder = le_image_encoder_destroy;
 	le_image_encoder_i->write_pixels          = le_image_encoder_write_pixels;
+	le_image_encoder_i->update_filename       = le_image_encoder_update_filename;
 	le_image_encoder_i->set_encode_parameters = le_image_encoder_set_encode_parameters;
 	le_image_encoder_i->get_encoder_version   = le_image_encoder_get_encoder_version;
 }
