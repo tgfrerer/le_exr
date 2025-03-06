@@ -27,11 +27,16 @@ static auto logger = LeLog( "le_exr" );
 struct le_image_decoder_o {
 	uint32_t image_width  = 0;
 	uint32_t image_height = 0;
+	uint32_t channel_count = 0;
 
 	Imf::InputFile* inputFile;
 
-	le::Format image_inferred_format;
+	le::Format image_inferred_format  = le::Format::eUndefined;
 	le::Format image_requested_format = le::Format::eUndefined; // requested format wins over inferred format
+
+	le::Format getFormat() {
+		return ( image_requested_format != le::Format::eUndefined ) ? image_requested_format : image_inferred_format;
+	};
 };
 
 // ----------------------------------------------------------------------
@@ -52,7 +57,7 @@ static le_image_decoder_o* le_image_decoder_create( char const* file_path ) {
 
 		Imf::PixelType pixel_type = Imf::PixelType::NUM_PIXELTYPES;
 
-		size_t channel_count = 0;
+		self->channel_count = 0;
 
 		char channel_names[ 4 ] = {};
 
@@ -68,13 +73,13 @@ static le_image_decoder_o* le_image_decoder_create( char const* file_path ) {
 			}
 
 			if ( c.name() ) {
-				channel_names[ channel_count ] = c.name()[ 0 ];
+				channel_names[ self->channel_count ] = c.name()[ 0 ];
 			}
 
-			channel_count++;
+			self->channel_count++;
 		}
 
-		if ( channel_count == 1 ) {
+		if ( self->channel_count == 1 ) {
 
 			switch ( pixel_type ) {
 			case ( Imf::PixelType::FLOAT ):
@@ -89,7 +94,7 @@ static le_image_decoder_o* le_image_decoder_create( char const* file_path ) {
 			default:
 				assert( false );
 			}
-		} else if ( channel_count == 3 ) {
+		} else if ( self->channel_count == 3 ) {
 
 			switch ( pixel_type ) {
 			case ( Imf::PixelType::FLOAT ):
@@ -104,7 +109,7 @@ static le_image_decoder_o* le_image_decoder_create( char const* file_path ) {
 			default:
 				assert( false );
 			}
-		} else if ( channel_count == 4 ) {
+		} else if ( self->channel_count == 4 ) {
 
 			switch ( pixel_type ) {
 			case ( Imf::PixelType::FLOAT ):
@@ -145,25 +150,28 @@ static void le_image_decoder_destroy( le_image_decoder_o* self ) {
 
 static bool le_image_decoder_read_pixels( le_image_decoder_o* self, uint8_t* pixel_data, size_t pixels_byte_count ) {
 
-	Imath::Box2i dw     = self->inputFile->header().dataWindow();
-	int          width  = self->image_width;
-	int          height = self->image_height;
+	Imath::Box2i dw = self->inputFile->header().dataWindow();
 
-	int              dx = dw.min.x;
-	int              dy = dw.min.y;
+	int dw_x = dw.min.x;
+	int dw_y = dw.min.y;
+
+	int w = self->image_width;
+	int h = self->image_height;
+
 	Imf::FrameBuffer framebuffer;
 
 	// Create a framebuffer layout for requested format eR32G32B32A32Sfloat -
 	// The framebuffer is essentially a descriptor for the data held in `pixel_data`
 	//
-	le::Format format = ( self->image_requested_format != le::Format::eUndefined ) ? self->image_requested_format : self->image_inferred_format;
 
 	le_num_type num_type     = {};
-	uint32_t    num_channels = {};
+	uint32_t    num_requested_channels = {}; // number of channels requested by the output image format
 
-	le_format_infer_channels_and_num_type( format, &num_channels, &num_type );
+	le_format_infer_channels_and_num_type( self->getFormat(), &num_requested_channels, &num_type );
 
-	uint32_t bytes_per_pixel          = size_of( num_type ) * num_channels;
+	uint32_t bytes_per_pixel = size_of( num_type ) * num_requested_channels;
+	size_t   num_data_bytes  = w * h * bytes_per_pixel;
+
 	uint32_t offsets_per_channel[ 4 ] = {
 	    size_of( num_type ) * 0,
 	    size_of( num_type ) * 1,
@@ -172,9 +180,9 @@ static bool le_image_decoder_read_pixels( le_image_decoder_o* self, uint8_t* pix
 	};
 
 	// In case we only have a single channel, we must name it Y for luminance
-	const std::string names_for_channels = num_channels > 1 ? "RGBA" : "Y";
+	const std::string names_for_channels = num_requested_channels > 1 ? "RGBA" : "Y";
 
-	for ( int i = 0; i != num_channels; i++ ) {
+	for ( int i = 0; i != num_requested_channels; i++ ) {
 
 		Imf::PixelType pixel_type = Imf::PixelType::NUM_PIXELTYPES;
 
@@ -197,9 +205,9 @@ static bool le_image_decoder_read_pixels( le_image_decoder_o* self, uint8_t* pix
 		    { names_for_channels[ i ] },
 		    Imf::Slice(
 		        pixel_type,                                                                              // pixel data type
-		        ( char* )pixel_data + ( -dy * width - dx ) * bytes_per_pixel + offsets_per_channel[ i ], // base offset
+		        ( char* )pixel_data + ( -dw_y * w - dw_x ) * bytes_per_pixel + offsets_per_channel[ i ], // base offset
 		        bytes_per_pixel,                                                                         // x-stride
-		        bytes_per_pixel * width,                                                                 // y-stride
+		        bytes_per_pixel * w,                                                                     // y-stride
 		        1,                                                                                       // x-sampling
 		        1,                                                                                       // y-sampling
 		        1.0                                                                                      // fill value (default value)
@@ -212,7 +220,7 @@ static bool le_image_decoder_read_pixels( le_image_decoder_o* self, uint8_t* pix
 	// Pixels now contains all the data in the correct layout.
 	// you can access the data via the &pixels[0][0].b;
 
-	if ( width * height * bytes_per_pixel <= pixels_byte_count ) {
+	if ( w * h * bytes_per_pixel <= pixels_byte_count ) {
 		self->inputFile->readPixels( dw.min.y, dw.max.y );
 		logger.info( "Successfully read image into pixels buffer." );
 		return true;
@@ -226,8 +234,13 @@ static bool le_image_decoder_read_pixels( le_image_decoder_o* self, uint8_t* pix
 // ----------------------------------------------------------------------
 
 static void le_image_decoder_get_image_data_description( le_image_decoder_o* self, le_image_decoder_format_o* p_format, uint32_t* w, uint32_t* h ) {
+
+	assert( self );
+
+	auto fmt = self->getFormat();
+
 	if ( p_format ) {
-		p_format->format = ( self->image_requested_format != le::Format::eUndefined ) ? self->image_requested_format : self->image_inferred_format;
+		p_format->format = fmt;
 	}
 	if ( w ) {
 		*w = self->image_width;
